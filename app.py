@@ -216,29 +216,28 @@ def fetch_all_reviews(id): #Defines function to fetch all review of a specified 
 
 #Gets one review
 @app.route("/api/v1.0/businesses/<bid>/reviews/<rid>", methods=["GET"])
-def fetch_one_review(bid, rid):
-    business = businesses.find_one(
-        {"reviews._id" : ObjectId(rid)},
-        {"_id" : 0, "reviews.$" : 1 })
+def fetch_one_review(bid, rid): #Defines function to fetch one review, takes bid (business ID) and rid (review ID) as parameters
+
+    #Validates both business ID and review ID
+    if not is_valid_objectid(bid) or not is_valid_objectid(rid): #Checks if either ID is invalid
+        error_message = "Bad business ID" if not is_valid_objectid(bid) else "Bad review ID" # Sets a error message based on which ID is invalid
+        return make_response(jsonify ({"error" : error_message}), 400) #Returns the error message if either ID is invalid with 400 status code
     
-    # if not is_valid...
-    # return error
+    # Queries the database to find the business by ID and its review by review ID
+    business = businesses.find_one(  #Queries the database to find the business with the given ID and the review with the given ID
+    {"_id": ObjectId(id), "reviews._id": ObjectId(rid)},  #Matches both the business ID and the review ID
+    {"_id": 0, "reviews.$": 1}  #Shows only the matched review
+    ) 
 
-    # if rid is not valid
-    # return error
-
-    #Validates the business ID
-    if not is_valid_objectid(bid): #Checks if business ID is valid
-        return make_response(jsonify ({"error": "Bad business ID"}), 400) #Returns a error message if ID is invalid with 400 status code
-
-    if not is_valid_objectid(rid): #Checks if business ID is valid
-        return make_response(jsonify ({"error": "Bad review ID"}), 400) #Returns a error message if ID is invalid with 400 status code
-
-    if business is None:
-        return make_response(jsonify ({"error":"Invalid business ID or review ID"}), 404)
+    #Checks if the business and review exists
+    if not business: #If the review doesn't exist within the business
+        return make_response(jsonify ({"error" : "Review not found"}), 404) #Returns an error message with 404 status code
+    
+    #Converts the review ObjectId to a string
     business['reviews'][0]['_id'] = str(business['reviews'][0]['_id'])
     
-    return make_response(jsonify (business['reviews'][0]), 200)
+    #Returns the review datya as JSON and with a 200 status code
+    return make_response(jsonify (business['reviews'][0]), 200) #Sends the review data 
 
 #Edits a review
 @app.route("/api/v1.0/businesses/<bid>/reviews/<rid>", methods=["PUT"])
@@ -247,11 +246,12 @@ def edit_review(bid, rid):
         "reviews.$.username" : request.form["username"],
         "reviews.$.comment" : request.form["comment"],
         "reviews.$.stars" : request.form['stars']
-    }
+        }
 
     businesses.update_one(
         { "reviews._id" : ObjectId(rid) },
-        { "$set" : edited_review })
+        { "$set" : edited_review }
+        )
 
     edit_review_url = "http://localhost:5000/api/v1.0/businesses/" + \
         bid + "/reviews/" + rid
