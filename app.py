@@ -188,9 +188,9 @@ def add_new_review(id): #Defines function to add a new review, takes id as its p
     return make_response(jsonify ({ "url" : new_review_link }), 201) #Sends a response with the new review URL and a status code of 201
 
 
-#Gets all reviews
-@app.route("/api/v1.0/businesses/<string:id>/reviews", methods=["GET"])
-def fetch_all_reviews(id):
+#Gets all reviews for a specific business
+@app.route("/api/v1.0/businesses/<string:id>/reviews", methods=["GET"]) #Route for fetching all reviews for a specific business using GET method
+def fetch_all_reviews(id): #Defines function to fetch all review of a specified business, takes id as its parameter
     #Validates the business ID
     if not is_valid_objectid(id): #Checks if business ID is valid
         return make_response(jsonify ({"error": "Invalid business ID"}), 400) #Returns a error message if ID is invalid with 400 status code
@@ -199,17 +199,20 @@ def fetch_all_reviews(id):
     business = businesses.find_one({'_id' : ObjectId(id)}) #Queries the databse to find the business by ID
     if not business: #If the business does not exist
         return make_response(jsonify ({"error" : "Business not found"}), 400) #Returns a error message if ID is invalid with 400 status code
+
+    #Initialise a list    
+    data_to_return = [] #Empty list assigned to 'data_to_return'
     
-    data_to_return = []
-    
+    #Retrieves the reviews of a specific business by its ObjectId
     business = businesses.find_one(
         {"_id" : ObjectId(id)}, \
-        {"reviews" : 1, "_id" : 0 })
-        
-    for review in business["reviews"]:
-        review["_id"] = str(review["_id"])
-        data_to_return.append(review)
-    return make_response(jsonify (data_to_return), 200 )
+        {"reviews" : 1, "_id" : 0 }) #Finds the business by its ObjectId and only retrieve its reviews
+
+    #For loop, loops through and proccesses each review    
+    for review in business["reviews"]: #Goes through each review in the business reviews
+        review["_id"] = str(review["_id"]) #Coverts the ID of each review into a string
+        data_to_return.append(review) #Adds the review to the list of data to return
+    return make_response(jsonify (data_to_return), 200 ) #Returns the list of reviews as a JSON response with a 200 status code 
 
 #Gets one review
 @app.route("/api/v1.0/businesses/<bid>/reviews/<rid>", methods=["GET"])
@@ -218,6 +221,19 @@ def fetch_one_review(bid, rid):
         {"reviews._id" : ObjectId(rid)},
         {"_id" : 0, "reviews.$" : 1 })
     
+    # if not is_valid...
+    # return error
+
+    # if rid is not valid
+    # return error
+
+    #Validates the business ID
+    if not is_valid_objectid(bid): #Checks if business ID is valid
+        return make_response(jsonify ({"error": "Bad business ID"}), 400) #Returns a error message if ID is invalid with 400 status code
+
+    if not is_valid_objectid(rid): #Checks if business ID is valid
+        return make_response(jsonify ({"error": "Bad review ID"}), 400) #Returns a error message if ID is invalid with 400 status code
+
     if business is None:
         return make_response(jsonify ({"error":"Invalid business ID or review ID"}), 404)
     business['reviews'][0]['_id'] = str(business['reviews'][0]['_id'])
