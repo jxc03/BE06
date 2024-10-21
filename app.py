@@ -62,27 +62,36 @@ def is_valid_objectid(id):
 
     #Checks if all characters are hexadecimal
     hex_digits =  "0123456789abcdefABCDEF" #String of hexadecimal characters
+    
     for char in id: #Iterates over each character in the ID
         if char not in hex_digits: #Checks if the character is not in the 'hex_digits' list
             return False #Returns False if any character is not a hexadecimal
     return True #Returns True if the ID is valid
 
+'''
+This function handles GET requests to retrieve a specific business by its ID. It will 
+validate the provided business ID ensure it's a valid 24 character hexadecimal string. If the
+ID is valid, it queries the 'businesses' collection in the database to find the business 
+with the given ID. If the business is not found or the ID is invalid, it returns an error message
+'''
+
 #Gets one business
-@app.route("/api/v1.0/businesses/<string:id>", methods = ["GET"]) #Root route, for GET method
-def show_one_businesses(id): #Defines function
-    if not is_valid_objectid(id):
-        return make_response(jsonify ({"error": "Invalid business ID"}), 400 )
+@app.route("/api/v1.0/businesses/<string:id>", methods = ["GET"]) #Route for getting a specific business by its ID using the GET method 
+def show_one_businesses(id): #Defines function to show one business which takes 'id' as its parameter
+    #Checks if the provided business ID is valid
+    if not is_valid_objectid(id): #Validates the business ID
+        return make_response(jsonify ({"error": "Invalid business ID"}), 400 ) #Returns error message if ID is invalid with 404 status code
 
-    business = businesses.find_one( {'_id' : ObjectId(id)} ) 
-
-    if business is not None:
-        business['_id'] = str(business['_id'])
-        for review in business['reviews']:
-            review['_id'] = str(review['_id'])
-        return make_response( jsonify (business), 200) #Output, returns business
-    else:
-        return make_response( jsonify ({"error" : "Invalid business ID"}), 404) #Output, returns error message with 404 status 
-
+    #Queries the database to find the business with the given ID
+    business = businesses.find_one( {'_id' : ObjectId(id)} ) #Retrieves the business from the database
+    
+    if business is not None: #Checks if the business exists
+        business['_id'] = str(business['_id']) #Converts business ObjectId to string
+        for review in business['reviews']: #Goes over each review in the business
+            review['_id'] = str(review['_id']) #Converts review ObjectId to string
+        return make_response( jsonify (business), 200) #Returns the business data as JSON with a 200 status code
+    else: #If business doesn't exists
+        return make_response( jsonify ({"error" : "Invalid business ID"}), 404) #Returns an error message with a 404 status code 
 
 
 #Adds a new business
@@ -143,24 +152,56 @@ def delete_businesses(id): #Defines function, takes id as input
         return make_response( jsonify ({"error" : "Invalid business ID"}), 404) #Output, returns error message with 404 status
 
 #Adds a review
-@app.route("/api/v1.0/businesses/<string:id>/reviews", methods=["POST"])
-def add_new_review(id):
+@app.route("/api/v1.0/businesses/<string:id>/reviews", methods=["POST"]) #Route for adding a review to a business using POST method
+def add_new_review(id): #Defines function to add a new review, takes id as its parameter
+    #Validates the business ID
+    if not is_valid_objectid(id): #Checks if business ID is valid
+        return make_response(jsonify ({"error": "Invalid business ID"}), 400) #Returns a error message if ID is invalid with 400 status code
+    
+    #Checks if the business exists
+    business = businesses.find_one({'_id' : ObjectId(id)}) #Queries the databse to find the business by ID
+    if not business: #If the business does not exist
+        return make_response(jsonify ({"error" : "Business not found"}), 400) #Returns a error message if ID is invalid with 400 status code
+
+    #Validates if there are form data to update
+    if not ("username" in request.form and \
+           "comment" in request.form and \
+           "stars" in request.form): 
+        return make_response(jsonify ({"error": "Missing form data"}), 400) #Returns a error message if any form data is missing with 400 status code
+
+    #Creates a new review dictionary with the provided form data
     new_review = {
-        "_id" : ObjectId(),
-        "username" : request.form["username"],
-        "comment" : request.form["comment"],
-        "stars" : request.form["stars"]
+        "_id" : ObjectId(), #Generates a new ObjectId for the review
+        "username" : request.form["username"], #Assigns the 'username' from the form data
+        "comment" : request.form["comment"], #Assigns the 'comment' from the form data
+        "stars" : request.form["stars"] #Assigns the 'stars' from the form data
     }
 
-    businesses.update_one( {"_id" : ObjectId(id)}, {"$push": {"reviews" : new_review}} )
-    new_review_link =  "http://localhost:5000/api/v1.0/businesses/" \
-                        + id +"/reviews/" + str(new_review['_id'])
-    return make_response(jsonify ({ "url" : new_review_link }), 201)
+    #Updates the business document by pushing the new review into the 'reviews' array
+    businesses.update_one( {"_id" : ObjectId(id)}, {"$push": {"reviews" : new_review}} ) #Adds the 
+
+    #Creates a link to the newly added review
+    new_review_link =  "http://127.0.0.1:2000/api/v1.0/businesses/" \
+                        + id +"/reviews/" + str(new_review['_id']) #Constructs the URL for the new review by combining the base URL, business ID, and review ID
+    
+    #Returns the URL of the new review with a 201 status code
+    return make_response(jsonify ({ "url" : new_review_link }), 201) #Sends a response with the new review URL and a status code of 201
+
 
 #Gets all reviews
 @app.route("/api/v1.0/businesses/<string:id>/reviews", methods=["GET"])
 def fetch_all_reviews(id):
+    #Validates the business ID
+    if not is_valid_objectid(id): #Checks if business ID is valid
+        return make_response(jsonify ({"error": "Invalid business ID"}), 400) #Returns a error message if ID is invalid with 400 status code
+    
+    #Checks if the business exists
+    business = businesses.find_one({'_id' : ObjectId(id)}) #Queries the databse to find the business by ID
+    if not business: #If the business does not exist
+        return make_response(jsonify ({"error" : "Business not found"}), 400) #Returns a error message if ID is invalid with 400 status code
+    
     data_to_return = []
+    
     business = businesses.find_one(
         {"_id" : ObjectId(id)}, \
         {"reviews" : 1, "_id" : 0 })
