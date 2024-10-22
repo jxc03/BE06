@@ -242,19 +242,38 @@ def fetch_one_review(bid, rid): #Defines function to fetch one review, takes bid
 #Edits a review
 @app.route("/api/v1.0/businesses/<bid>/reviews/<rid>", methods=["PUT"])
 def edit_review(bid, rid):
+
+    #Validates both business ID and review ID
+    if not is_valid_objectid(bid) or not is_valid_objectid(rid):
+        error_message = "Invalid business ID" if not is_valid_objectid(bid) else "Invalid review ID"
+        return make_response(jsonify({"error": error_message}), 400)
+    
+     # Find business and the specific review in one query
+    business = businesses.find_one(
+        {"_id": ObjectId(bid), "reviews._id": ObjectId(rid)},
+        {"_id": 0, "reviews.$": 1}  # Only return the matching review
+    )
+
+    # Check if business and review exist
+    if not business:
+        return make_response(jsonify({"error": "Review not found"}), 404)
+    
     edited_review = {
         "reviews.$.username" : request.form["username"],
         "reviews.$.comment" : request.form["comment"],
         "reviews.$.stars" : request.form['stars']
         }
 
-    businesses.update_one(
-        { "reviews._id" : ObjectId(rid) },
-        { "$set" : edited_review }
-        )
+    result = businesses.update_one(
+        {"_id": ObjectId(bid), "reviews._id": ObjectId(rid)},
+        {"$set": edited_review}
+    )
 
-    edit_review_url = "http://localhost:5000/api/v1.0/businesses/" + \
-        bid + "/reviews/" + rid
+    # Check if the update matched a document (i.e., business and review exist)
+    if result.matched_count == 0:
+        return make_response(jsonify({"error": "Review not found or no changes made"}), 404)
+
+    edit_review_url = f"http://localhost:5000/api/v1.0/businesses/{bid}/reviews/{rid}"
     
     return make_response(jsonify ({"url":edit_review_url}), 200)
 
